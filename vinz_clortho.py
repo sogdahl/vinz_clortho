@@ -1,3 +1,4 @@
+#!/usr/bin/python
 __author__ = 'Steven Ogdahl'
 __version__ = '0.1a'
 
@@ -17,7 +18,7 @@ from django.conf import settings
 if ENV_HOST == 'Lynx':
     settings.configure(
         DATABASES = {
-                'default': {
+            'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
                 'USER': 'workportal',
@@ -33,7 +34,7 @@ if ENV_HOST == 'Lynx':
 elif ENV_HOST == 'newstage.vanguardds.com':
     settings.configure(
         DATABASES = {
-                'default': {
+            'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
                 'USER': 'workportal',
@@ -49,7 +50,7 @@ elif ENV_HOST == 'newstage.vanguardds.com':
 elif ENV_HOST == 'work.vanguardds.com':
     settings.configure(
         DATABASES = {
-                'default': {
+            'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
                 'USER': 'workportal',
@@ -218,6 +219,8 @@ if __name__ == "__main__":
             daemon.stop()
         elif 'restart' == sys.argv[-1]:
             daemon.restart()
+        elif 'status' == sys.argv[-1]:
+            daemon.status()
         elif 'run' == sys.argv[-1]:
             daemon.run()
         else:
@@ -227,8 +230,9 @@ if __name__ == "__main__":
     else:
         print "usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0]
         print "OPTIONS can be any of (default in parenthesis):"
-        print "\t-l(E|W|I)\tSets the minimum logging level to Errors, Warnings, or Infos (W)"
-        print "\t-p##\tSets main polling interval (2)"
-        print "\t-w##\tSets credential waiting timeout value (90)"
-        print "\t-u##\tSets credential using timeout value (600)"
+        print "  -l(E|W|I)\tSets the minimum logging level to Errors, Warnings, "
+        print "\t\tor Infos (W)"
+        print "  -p##\t\tSets main polling interval (2)"
+        print "  -w##\t\tSets credential waiting timeout value (90)"
+        print "  -u##\t\tSets credential using timeout value (600)"
         sys.exit(2)
