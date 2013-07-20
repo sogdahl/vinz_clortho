@@ -31,7 +31,7 @@ if ENV_HOST == 'Lynx':
         TIME_ZONE = 'US/Central'
     )
 
-elif ENV_HOST == 'newstage.vanguardds.com':
+elif ENV_HOST == 'stage.vanguardds.com':
     settings.configure(
         DATABASES = {
             'default': {
@@ -76,6 +76,8 @@ class VCDaemon(Daemon):
     LEVEL_WARNING = 1
     LEVEL_INFO = 2
 
+    timestamp_format = '%Y-%m-%d %H:%M:%S.%f'
+
     min_log_level = LEVEL_WARNING
 
     def __init__(self, *args, **kwargs):
@@ -86,9 +88,9 @@ class VCDaemon(Daemon):
         if level > self.min_log_level:
             return
         if request:
-            print "[{0}] RequestId: {1} -- {2}".format(datetime.now().strftime('%H:%M:%S.%f'), request.id, message)
+            print "[{0}] RequestId: {1} -- {2}".format(datetime.now().strftime(self.timestamp_format), request.id, message)
         else:
-            print "[{0}] {1}".format(datetime.now().strftime('%H:%M:%S.%f'), message)
+            print "[{0}] {1}".format(datetime.now().strftime(self.timestamp_format), message)
 
     def run(self):
         self.log(VCDaemon.LEVEL_INFO, None, "Running with a polling interval of {0} seconds".format(POLL_INTERVAL))
