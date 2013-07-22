@@ -1,5 +1,6 @@
+#!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.1'
+__version__ = '0.1a'
 
 import sys
 import time
@@ -17,7 +18,7 @@ from django.conf import settings
 if ENV_HOST == 'Lynx':
     settings.configure(
         DATABASES = {
-                'default': {
+            'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
                 'USER': 'workportal',
@@ -30,10 +31,10 @@ if ENV_HOST == 'Lynx':
         TIME_ZONE = 'US/Central'
     )
 
-elif ENV_HOST == 'newstage.vanguardds.com':
+elif ENV_HOST == 'stage.vanguardds.com':
     settings.configure(
         DATABASES = {
-                'default': {
+            'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
                 'USER': 'workportal',
@@ -49,7 +50,7 @@ elif ENV_HOST == 'newstage.vanguardds.com':
 elif ENV_HOST == 'work.vanguardds.com':
     settings.configure(
         DATABASES = {
-                'default': {
+            'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
                 'USER': 'workportal',
@@ -75,6 +76,8 @@ class VCDaemon(Daemon):
     LEVEL_WARNING = 1
     LEVEL_INFO = 2
 
+    timestamp_format = '%Y-%m-%d %H:%M:%S.%f'
+
     min_log_level = LEVEL_WARNING
 
     def __init__(self, *args, **kwargs):
@@ -85,9 +88,9 @@ class VCDaemon(Daemon):
         if level > self.min_log_level:
             return
         if request:
-            print "[{0}] RequestId: {1} -- {2}".format(datetime.now().strftime('%H:%M:%S.%f'), request.id, message)
+            print "[{0}] RequestId: {1} -- {2}".format(datetime.now().strftime(self.timestamp_format), request.id, message)
         else:
-            print "[{0}] {1}".format(datetime.now().strftime('%H:%M:%S.%f'), message)
+            print "[{0}] {1}".format(datetime.now().strftime(self.timestamp_format), message)
 
     def run(self):
         self.log(VCDaemon.LEVEL_INFO, None, "Running with a polling interval of {0} seconds".format(POLL_INTERVAL))
@@ -218,6 +221,8 @@ if __name__ == "__main__":
             daemon.stop()
         elif 'restart' == sys.argv[-1]:
             daemon.restart()
+        elif 'status' == sys.argv[-1]:
+            daemon.status()
         elif 'run' == sys.argv[-1]:
             daemon.run()
         else:
@@ -227,8 +232,9 @@ if __name__ == "__main__":
     else:
         print "usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0]
         print "OPTIONS can be any of (default in parenthesis):"
-        print "\t-l(E|W|I)\tSets the minimum logging level to Errors, Warnings, or Infos (W)"
-        print "\t-p##\tSets main polling interval (2)"
-        print "\t-w##\tSets credential waiting timeout value (90)"
-        print "\t-u##\tSets credential using timeout value (600)"
+        print "  -l(E|W|I)\tSets the minimum logging level to Errors, Warnings, "
+        print "\t\tor Infos (W)"
+        print "  -p##\t\tSets main polling interval (2)"
+        print "  -w##\t\tSets credential waiting timeout value (90)"
+        print "  -u##\t\tSets credential using timeout value (600)"
         sys.exit(2)
