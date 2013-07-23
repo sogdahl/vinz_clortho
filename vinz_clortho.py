@@ -1,10 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-<<<<<<< HEAD
-__version__ = '0.2'
-=======
-__version__ = '0.2a'
->>>>>>> remotes/origin/develop
+__version__ = '0.3'
 
 import sys
 import time
