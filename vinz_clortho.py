@@ -131,7 +131,7 @@ class VCDaemon(Daemon):
             if returned_credentials.count() > 0:
                 self.log(logging.DEBUG, "Processing {0} returned credentials".format(returned_credentials.count()))
             for returned_credential in returned_credentials:
-                self.log(logging.INFO, "Credentials returned by client", returned_credential)
+                self.log(logging.INFO, "CredentialId {0} returned by client".format(returned_credential.credential.id), returned_credential)
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
                 returned_credential.save()
