@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.3'
+__version__ = '0.3a'
 
 import sys
 import time
@@ -105,13 +105,13 @@ class VCDaemon(Daemon):
 
                 # If we didn't find any credentials, then error out this request
                 if len(credentials) == 0:
-                    self.log(logging.ERROR, "No such key found: {0}".format(new_request.key), new_request)
                     new_request.status = CMRequest.NO_SUCH_KEY
+                    self.log(logging.ERROR, "No such key found: {0}".format(new_request.key), new_request)
                     new_request.save()
                     continue
 
-                self.log(logging.INFO, "Putting into queue", new_request)
                 new_request.status = CMRequest.QUEUING
+                self.log(logging.INFO, "Putting into queue", new_request)
                 new_request.save()
 
             # This is mainly a formality, but just mark all the ones that are a
@@ -122,8 +122,8 @@ class VCDaemon(Daemon):
             if cancel_requests.count() > 0:
                 self.log(logging.DEBUG, "Processing {0} cancel requests".format(cancel_requests.count()))
             for cancel_request in cancel_requests:
-                self.log(logging.INFO, "Canceled by client", cancel_request)
                 cancel_request.status = CMRequest.CANCELED
+                self.log(logging.INFO, "Canceled by client", cancel_request)
                 cancel_request.save()
 
             returned_credentials = CMRequest.objects.\
@@ -131,9 +131,9 @@ class VCDaemon(Daemon):
             if returned_credentials.count() > 0:
                 self.log(logging.DEBUG, "Processing {0} returned credentials".format(returned_credentials.count()))
             for returned_credential in returned_credentials:
-                self.log(logging.INFO, "Credentials returned by client", returned_credential)
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
+                self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1}s)".format(returned_credential.credential.id, (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()), returned_credential)
                 returned_credential.save()
 
             pending_credentials = CMRequest.objects.\
@@ -142,8 +142,8 @@ class VCDaemon(Daemon):
                 self.log(logging.DEBUG, "Testing {0} given out credentials for time-out".format(pending_credentials.count()))
             for pending_credential in pending_credentials:
                 if (datetime.now() - pending_credential.checkout_timestamp).total_seconds() > WAITING_TIMEOUT:
-                    self.log(logging.WARNING, "Timed out waiting for client to receive credentials", pending_credential)
                     pending_credential.status = CMRequest.TIMED_OUT_WAITING
+                    self.log(logging.WARNING, "Timed out waiting for client to receive credentials", pending_credential)
                     pending_credential.save()
 
             in_use_credentials = CMRequest.objects.\
@@ -152,8 +152,8 @@ class VCDaemon(Daemon):
                 self.log(logging.DEBUG, "Testing {0} in-use credentials for time-out".format(in_use_credentials.count()))
             for in_use_credential in in_use_credentials:
                 if (datetime.now() - in_use_credential.checkout_timestamp).total_seconds() > USING_TIMEOUT:
-                    self.log(logging.WARNING, "Timed out waiting for client to return credentials", in_use_credential)
                     in_use_credential.status = CMRequest.TIMED_OUT_USING
+                    self.log(logging.WARNING, "Timed out waiting for client to return credentials", in_use_credential)
                     in_use_credential.save()
 
             # This is the meat of the big loop.  This section is the one that
@@ -191,10 +191,10 @@ class VCDaemon(Daemon):
                     if (available_credential.max_checkouts == 0 or in_use_credentials < available_credential.max_checkouts) and \
                             (available_credential.throttle_timespan == 0 or credential_frequency == 0):
                         # We found a credential available to be used! Yay!
-                        self.log(logging.INFO, "Assigning CredentialId: {0} to client".format(available_credential.id), queued_request)
                         queued_request.credential = available_credential
                         queued_request.status = CMRequest.GIVEN_OUT
                         queued_request.checkout_timestamp = datetime.now()
+                        self.log(logging.INFO, "Assigning CredentialId: {0} to client (waited {1}s)".format(available_credential.id, (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds()), queued_request)
                         queued_request.save()
                         break
 
