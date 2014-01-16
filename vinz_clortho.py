@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.3a'
+__version__ = '0.4b'
 
 import sys
 import time
@@ -39,7 +39,7 @@ elif ENV_HOST == 'stage.vanguardds.com':
                 'USER': 'workportal',
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
-                'PORT': '5432',
+                'PORT': '6432',
                 'OPTIONS': {'autocommit': True,}
             }
         },
@@ -47,6 +47,22 @@ elif ENV_HOST == 'stage.vanguardds.com':
     )
 
 elif ENV_HOST == 'work.vanguardds.com':
+    settings.configure(
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql_psycopg2',
+                'NAME': 'workportal',
+                'USER': 'workportal',
+                'PASSWORD': 'PYddT2rEk02d',
+                'HOST': '127.0.0.1',
+                'PORT': '6432',
+                'OPTIONS': {'autocommit': True,}
+            }
+        },
+        TIME_ZONE = 'UTC'
+    )
+
+elif ENV_HOST == 'atisearch.com':
     settings.configure(
         DATABASES = {
             'default': {
@@ -147,7 +163,7 @@ class VCDaemon(Daemon):
                     pending_credential.save()
 
             in_use_credentials = CMRequest.objects.\
-                filter(status=CMRequest.IN_USE)
+                filter(status__in=[CMRequest.IN_USE, CMRequest.CANCEL])
             if in_use_credentials.count() > 0:
                 self.log(logging.DEBUG, "Testing {0} in-use credentials for time-out".format(in_use_credentials.count()))
             for in_use_credential in in_use_credentials:
