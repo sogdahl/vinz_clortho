@@ -300,7 +300,7 @@ if __name__ == "__main__":
                 else:
                     print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D"
                     sys.exit(2)
-            if arg[:2] == '-L':
+            elif arg[:2] == '-L':
                 kwdict['logfile'] = arg[2:]
             elif arg[:2] == '-p':
                 POLL_INTERVAL = int(arg[2:])
@@ -316,6 +316,8 @@ if __name__ == "__main__":
                 print "Many Shuvs and Zuuls knew what it was to be roasted"
                 print "in the depths of the Slor that day, I can tell you!"
                 sys.exit(1)
+            elif arg in ('start', 'stop', 'restart', 'status', 'run'):
+                break
             else:
                 print "Unknown argument passed.  Please consult --help"
                 sys.exit(2)
