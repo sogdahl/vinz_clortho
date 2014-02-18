@@ -283,7 +283,7 @@ if __name__ == "__main__":
     kwdict = {}
     #  VERY basic options parsing
     if len(sys.argv) >= 2:
-        for arg in sys.argv:
+        for arg in sys.argv[1:]:
             if arg[:2] == '-l':
                 if arg[-1] in ('f', 'F'):
                     kwdict['min_log_level'] = logging.FATAL
