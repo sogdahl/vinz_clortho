@@ -1,11 +1,12 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.4b'
+__version__ = '0.5'
 
 import sys
 import time
 import socket
 import logging
+import signal
 from datetime import datetime, timedelta
 
 from daemon import Daemon
@@ -22,7 +23,7 @@ if ENV_HOST == 'Lynx':
                 'NAME': 'workportal',
                 'USER': 'workportal',
                 'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '127.0.0.1',
+                'HOST': '192.168.2.110',
                 'PORT': '5432',
                 'OPTIONS': {'autocommit': True,}
             }
@@ -89,6 +90,11 @@ class VCDaemon(Daemon):
     timestamp_format = '%Y-%m-%d %H:%M:%S'
     min_log_level = logging.WARNING
     logfile = 'vinz_clortho.log'
+    IS_RUNNING = False
+    SHOULD_BE_RUNNING = False
+    PROCESS_STEP = None
+    PROCESS_COUNT = 0
+    PROCESS_INDEX = 0
 
     def __init__(self, *args, **kwargs):
         Daemon.__init__(self, *args, **kwargs)
@@ -108,15 +114,39 @@ class VCDaemon(Daemon):
             logstr = message
         logging.log(level, logstr)
 
+    def graceful_term(self, signum, frame):
+        self.log(logging.INFO, "Caught SigTerm... terminating gracefully.")
+        self.SHOULD_BE_RUNNING = False
+        if self.PROCESS_STEP:
+            self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT))
+        previous_step = self.PROCESS_STEP
+        while self.IS_RUNNING:
+            if self.PROCESS_STEP != previous_step:
+                self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT))
+            previous_step = self.PROCESS_STEP
+            time.sleep(0.1)
+        self.log(logging.INFO, "Gracefully terminated.")
+        sys.exit(0)
+
     def run(self):
         self.log(logging.INFO, "Running with a polling interval of {0} seconds".format(POLL_INTERVAL))
         self.log(logging.INFO, "Credential waiting timeout is {0} seconds".format(WAITING_TIMEOUT))
         self.log(logging.INFO, "Credential using timeout is {0} seconds".format(USING_TIMEOUT))
-        while True:
+
+        signal.signal(signal.SIGTERM, self.graceful_term)
+        self.SHOULD_BE_RUNNING = True
+
+        while self.SHOULD_BE_RUNNING:
+            self.IS_RUNNING = True
+
             new_requests = CMRequest.objects.filter(status=CMRequest.SUBMITTED)
-            if new_requests.count() > 0:
-                self.log(logging.DEBUG, "Processing {0} new requests".format(new_requests.count()))
+            self.PROCESS_STEP = "New Requests"
+            self.PROCESS_COUNT = new_requests.count()
+            self.PROCESS_INDEX = 0
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Processing {0} new requests".format(self.PROCESS_COUNT))
             for new_request in new_requests:
+                self.PROCESS_INDEX += 1
                 credentials = Credential.objects.filter(key=new_request.key)
 
                 # If we didn't find any credentials, then error out this request
@@ -135,18 +165,26 @@ class VCDaemon(Daemon):
             # server acknowledged the order to cancel
             cancel_requests = CMRequest.objects.\
                 filter(status=CMRequest.CANCEL)
-            if cancel_requests.count() > 0:
-                self.log(logging.DEBUG, "Processing {0} cancel requests".format(cancel_requests.count()))
+            self.PROCESS_STEP = "Cancel Requests"
+            self.PROCESS_COUNT = cancel_requests.count()
+            self.PROCESS_INDEX = 0
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Processing {0} cancel requests".format(self.PROCESS_COUNT))
             for cancel_request in cancel_requests:
+                self.PROCESS_INDEX += 1
                 cancel_request.status = CMRequest.CANCELED
                 self.log(logging.INFO, "Canceled by client", cancel_request)
                 cancel_request.save()
 
             returned_credentials = CMRequest.objects.\
                 filter(status=CMRequest.RETURNED)
-            if returned_credentials.count() > 0:
-                self.log(logging.DEBUG, "Processing {0} returned credentials".format(returned_credentials.count()))
+            self.PROCESS_STEP = "Returned Credentials"
+            self.PROCESS_COUNT = returned_credentials.count()
+            self.PROCESS_INDEX = 0
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Processing {0} returned credentials".format(self.PROCESS_COUNT))
             for returned_credential in returned_credentials:
+                self.PROCESS_INDEX += 1
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
                 self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1}s)".format(returned_credential.credential.id, (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()), returned_credential)
@@ -154,9 +192,13 @@ class VCDaemon(Daemon):
 
             pending_credentials = CMRequest.objects.\
                 filter(status=CMRequest.GIVEN_OUT)
-            if pending_credentials.count() > 0:
-                self.log(logging.DEBUG, "Testing {0} given out credentials for time-out".format(pending_credentials.count()))
+            self.PROCESS_STEP = "Pending Credentials"
+            self.PROCESS_COUNT = pending_credentials.count()
+            self.PROCESS_INDEX = 0
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Testing {0} given out credentials for time-out".format(self.PROCESS_COUNT))
             for pending_credential in pending_credentials:
+                self.PROCESS_INDEX += 1
                 if (datetime.now() - pending_credential.checkout_timestamp).total_seconds() > WAITING_TIMEOUT:
                     pending_credential.status = CMRequest.TIMED_OUT_WAITING
                     self.log(logging.WARNING, "Timed out waiting for client to receive credentials", pending_credential)
@@ -164,9 +206,13 @@ class VCDaemon(Daemon):
 
             in_use_credentials = CMRequest.objects.\
                 filter(status__in=[CMRequest.IN_USE, CMRequest.CANCEL])
-            if in_use_credentials.count() > 0:
-                self.log(logging.DEBUG, "Testing {0} in-use credentials for time-out".format(in_use_credentials.count()))
+            self.PROCESS_STEP = "In-use Credentials"
+            self.PROCESS_COUNT = in_use_credentials.count()
+            self.PROCESS_INDEX = 0
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Testing {0} in-use credentials for time-out".format(self.PROCESS_COUNT))
             for in_use_credential in in_use_credentials:
+                self.PROCESS_INDEX += 1
                 if (datetime.now() - in_use_credential.checkout_timestamp).total_seconds() > USING_TIMEOUT:
                     in_use_credential.status = CMRequest.TIMED_OUT_USING
                     self.log(logging.WARNING, "Timed out waiting for client to return credentials", in_use_credential)
@@ -178,9 +224,13 @@ class VCDaemon(Daemon):
             queued_requests = CMRequest.objects.\
                 filter(status=CMRequest.QUEUING).\
                 order_by('-priority', 'submission_timestamp', 'id')
-            if queued_requests.count() > 0:
-                self.log(logging.DEBUG, "Checking credentials to give out for {0} queued requests".format(queued_requests.count()))
+            self.PROCESS_STEP = "Queued Requests"
+            self.PROCESS_COUNT = queued_requests.count()
+            self.PROCESS_INDEX = 0
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Checking credentials to give out for {0} queued requests".format(self.PROCESS_COUNT))
             for queued_request in queued_requests:
+                self.PROCESS_INDEX += 1
                 available_credentials = Credential.objects.filter(key=queued_request.key)
                 if available_credentials.count() > 0:
                     self.log(logging.DEBUG, "Testing {0} available credentials for queued request {1}".format(available_credentials.count(), queued_request.id))
@@ -214,7 +264,20 @@ class VCDaemon(Daemon):
                         queued_request.save()
                         break
 
+            self.IS_RUNNING = False
             time.sleep(POLL_INTERVAL)
+
+def print_help():
+    print "usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0]
+    print "OPTIONS can be any of (default in parenthesis):"
+    print "  -l(F|C|E|W|I|D)\tSets the minimum logging level to Fatal, Critical, "
+    print "\t\tError, Warning, or Info, or Debug (W)"
+    print "  -LFILE\tSets logfile to FILE"
+    print "\t\tLeave blank for STDOUT"
+    print "  -p##\t\tSets main polling interval (2)"
+    print "  -w##\t\tSets credential waiting timeout value (90)"
+    print "  -u##\t\tSets credential using timeout value (600)"
+    print "  -v\t\tPrints the current version and exits"
 
 if __name__ == "__main__":
     kwdict = {}
@@ -245,10 +308,16 @@ if __name__ == "__main__":
                 WAITING_TIMEOUT = int(arg[2:])
             elif arg[:2] == '-u':
                 USING_TIMEOUT = int(arg[2:])
-            elif arg[:2] == '-v':
+            elif arg in ('-h', '--help'):
+                print_help()
+                sys.exit(1)
+            elif arg in ('-v', '--version'):
                 print "%s version %s" % (sys.argv[0], __version__)
                 print "Many Shuvs and Zuuls knew what it was to be roasted"
                 print "in the depths of the Slor that day, I can tell you!"
+                sys.exit(1)
+            else:
+                print "Unknown argument passed.  Please consult --help"
                 sys.exit(2)
 
     daemon = VCDaemon('/tmp/daemon-credential_manager.pid', **kwdict)
@@ -268,14 +337,5 @@ if __name__ == "__main__":
             sys.exit(2)
         sys.exit(0)
     else:
-        print "usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0]
-        print "OPTIONS can be any of (default in parenthesis):"
-        print "  -l(F|C|E|W|I|D)\tSets the minimum logging level to Fatal, Critical, "
-        print "\t\tError, Warning, or Info, or Debug (W)"
-        print "  -LFILE\tSets logfile to FILE"
-        print "\t\tLeave blank for STDOUT"
-        print "  -p##\t\tSets main polling interval (2)"
-        print "  -w##\t\tSets credential waiting timeout value (90)"
-        print "  -u##\t\tSets credential using timeout value (600)"
-        print "  -v\t\tPrints the current version and exits"
+        print_help()
         sys.exit(2)
