@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.5'
+__version__ = '0.6'
 
 import sys
 import time
@@ -17,7 +17,7 @@ from django.conf import settings
 
 if ENV_HOST == 'Lynx':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -25,15 +25,15 @@ if ENV_HOST == 'Lynx':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '192.168.2.110',
                 'PORT': '5432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'US/Central'
+        TIME_ZONE='US/Central'
     )
 
 elif ENV_HOST == 'stage.vanguardds.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -41,15 +41,15 @@ elif ENV_HOST == 'stage.vanguardds.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
                 'PORT': '6432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE='UTC'
     )
 
 elif ENV_HOST == 'work.vanguardds.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -57,15 +57,15 @@ elif ENV_HOST == 'work.vanguardds.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
                 'PORT': '6432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE='UTC'
     )
 
 elif ENV_HOST == 'atisearch.com':
     settings.configure(
-        DATABASES = {
+        DATABASES={
             'default': {
                 'ENGINE': 'django.db.backends.postgresql_psycopg2',
                 'NAME': 'workportal',
@@ -73,10 +73,10 @@ elif ENV_HOST == 'atisearch.com':
                 'PASSWORD': 'PYddT2rEk02d',
                 'HOST': '127.0.0.1',
                 'PORT': '5432',
-                'OPTIONS': {'autocommit': True,}
+                'OPTIONS': {'autocommit': True, }
             }
         },
-        TIME_ZONE = 'UTC'
+        TIME_ZONE='UTC'
     )
 
 from scrapeService.copied_models import Credential, CMRequest
@@ -85,6 +85,7 @@ from scrapeService.copied_models import Credential, CMRequest
 WAITING_TIMEOUT = 90
 USING_TIMEOUT = 600
 POLL_INTERVAL = 2
+
 
 class VCDaemon(Daemon):
     timestamp_format = '%Y-%m-%d %H:%M:%S'
@@ -109,7 +110,7 @@ class VCDaemon(Daemon):
 
     def log(self, level, message, request=None):
         if request:
-            logstr = "RequestId: {0} -- {1}".format(request.id, message)
+            logstr = "RequestId: {0} ({2}) -- {1}".format(request.id, message, request.key)
         else:
             logstr = message
         logging.log(level, logstr)
@@ -118,11 +119,15 @@ class VCDaemon(Daemon):
         self.log(logging.INFO, "Caught SigTerm... terminating gracefully.")
         self.SHOULD_BE_RUNNING = False
         if self.PROCESS_STEP:
-            self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT))
+            self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(
+                self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT)
+            )
         previous_step = self.PROCESS_STEP
         while self.IS_RUNNING:
             if self.PROCESS_STEP != previous_step:
-                self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(
+                    self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT)
+                )
             previous_step = self.PROCESS_STEP
             time.sleep(0.1)
         self.log(logging.INFO, "Gracefully terminated.")
@@ -187,7 +192,11 @@ class VCDaemon(Daemon):
                 self.PROCESS_INDEX += 1
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
-                self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1}s)".format(returned_credential.credential.id, (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()), returned_credential)
+                self.log(logging.INFO, "CredentialId {0} ({2}) returned by client (Elapsed: {1}s)".format(
+                    returned_credential.credential.id,
+                    (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds(),
+                    returned_credential.key
+                ), returned_credential)
                 returned_credential.save()
 
             pending_credentials = CMRequest.objects.\
@@ -228,12 +237,18 @@ class VCDaemon(Daemon):
             self.PROCESS_COUNT = queued_requests.count()
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
-                self.log(logging.DEBUG, "Checking credentials to give out for {0} queued requests".format(self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Checking credentials to give out for {0} queued requests".format(
+                    self.PROCESS_COUNT)
+                )
             for queued_request in queued_requests:
                 self.PROCESS_INDEX += 1
                 available_credentials = Credential.objects.filter(key=queued_request.key)
                 if available_credentials.count() > 0:
-                    self.log(logging.DEBUG, "Testing {0} available credentials for queued request {1}".format(available_credentials.count(), queued_request.id))
+                    self.log(logging.DEBUG, "Testing {0} available credentials for queued request {1} ({2})".format(
+                        available_credentials.count(),
+                        queued_request.id,
+                        queued_request.key
+                    ))
                 for available_credential in available_credentials:
                     # Only give out credentials if there are any available to give out
                     in_use_credentials = CMRequest.objects.\
@@ -254,18 +269,24 @@ class VCDaemon(Daemon):
                             CMRequest.COMPLETED
                         ], checkout_timestamp__gte=datetime.now() - timedelta(seconds=available_credential.throttle_timespan)).count()
 
-                    if (available_credential.max_checkouts == 0 or in_use_credentials < available_credential.max_checkouts) and \
+                    if (available_credential.max_checkouts == 0 or
+                            in_use_credentials < available_credential.max_checkouts) and \
                             (available_credential.throttle_timespan == 0 or credential_frequency == 0):
                         # We found a credential available to be used! Yay!
                         queued_request.credential = available_credential
                         queued_request.status = CMRequest.GIVEN_OUT
                         queued_request.checkout_timestamp = datetime.now()
-                        self.log(logging.INFO, "Assigning CredentialId: {0} to client (waited {1}s)".format(available_credential.id, (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds()), queued_request)
+                        self.log(logging.INFO, "Assigning CredentialId: {0} ({2}) to client (waited {1}s)".format(
+                            available_credential.id,
+                            (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds(),
+                            available_credential.key
+                        ), queued_request)
                         queued_request.save()
                         break
 
             self.IS_RUNNING = False
             time.sleep(POLL_INTERVAL)
+
 
 def print_help():
     print "usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0]
