@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.6'
+__version__ = '0.7'
 
 import sys
 import time
@@ -192,10 +192,9 @@ class VCDaemon(Daemon):
                 self.PROCESS_INDEX += 1
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
-                self.log(logging.INFO, "CredentialId {0} ({2}) returned by client (Elapsed: {1}s)".format(
+                self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1}s)".format(
                     returned_credential.credential.id,
-                    (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds(),
-                    returned_credential.key
+                    (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()
                 ), returned_credential)
                 returned_credential.save()
 
@@ -244,11 +243,9 @@ class VCDaemon(Daemon):
                 self.PROCESS_INDEX += 1
                 available_credentials = Credential.objects.filter(key=queued_request.key)
                 if available_credentials.count() > 0:
-                    self.log(logging.DEBUG, "Testing {0} available credentials for queued request {1} ({2})".format(
-                        available_credentials.count(),
-                        queued_request.id,
-                        queued_request.key
-                    ))
+                    self.log(logging.DEBUG, "Testing {0} available credentials for queued request".format(
+                        available_credentials.count()
+                    ), queued_request)
                 for available_credential in available_credentials:
                     # Only give out credentials if there are any available to give out
                     in_use_credentials = CMRequest.objects.\
@@ -276,10 +273,9 @@ class VCDaemon(Daemon):
                         queued_request.credential = available_credential
                         queued_request.status = CMRequest.GIVEN_OUT
                         queued_request.checkout_timestamp = datetime.now()
-                        self.log(logging.INFO, "Assigning CredentialId: {0} ({2}) to client (waited {1}s)".format(
+                        self.log(logging.INFO, "Assigning CredentialId: {0} to client (waited {1}s)".format(
                             available_credential.id,
-                            (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds(),
-                            available_credential.key
+                            (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds()
                         ), queued_request)
                         queued_request.save()
                         break
