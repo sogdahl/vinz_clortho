@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.7'
+__version__ = '0.8'
 
 import sys
 import time
@@ -192,7 +192,7 @@ class VCDaemon(Daemon):
                 self.PROCESS_INDEX += 1
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
-                self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1}s)".format(
+                self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1:.1f}s)".format(
                     returned_credential.credential.id,
                     (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()
                 ), returned_credential)
@@ -273,7 +273,7 @@ class VCDaemon(Daemon):
                         queued_request.credential = available_credential
                         queued_request.status = CMRequest.GIVEN_OUT
                         queued_request.checkout_timestamp = datetime.now()
-                        self.log(logging.INFO, "Assigning CredentialId: {0} to client (waited {1}s)".format(
+                        self.log(logging.INFO, "Assigning CredentialId: {0} to client (waited {1:.1f}s)".format(
                             available_credential.id,
                             (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds()
                         ), queued_request)
