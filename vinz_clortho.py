@@ -86,7 +86,6 @@ WAITING_TIMEOUT = 90
 USING_TIMEOUT = 600
 POLL_INTERVAL = 2
 
-
 class VCDaemon(Daemon):
     timestamp_format = '%Y-%m-%d %H:%M:%S'
     min_log_level = logging.WARNING
@@ -150,6 +149,7 @@ class VCDaemon(Daemon):
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Processing {0} new requests".format(self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in new_requests])))
             for new_request in new_requests:
                 self.PROCESS_INDEX += 1
                 credentials = Credential.objects.filter(key=new_request.key)
@@ -175,6 +175,7 @@ class VCDaemon(Daemon):
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Processing {0} cancel requests".format(self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in cancel_requests])))
             for cancel_request in cancel_requests:
                 self.PROCESS_INDEX += 1
                 cancel_request.status = CMRequest.CANCELED
@@ -188,6 +189,7 @@ class VCDaemon(Daemon):
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Processing {0} returned credentials".format(self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in returned_credentials])))
             for returned_credential in returned_credentials:
                 self.PROCESS_INDEX += 1
                 returned_credential.status = CMRequest.COMPLETED
@@ -205,6 +207,7 @@ class VCDaemon(Daemon):
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Testing {0} given out credentials for time-out".format(self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in pending_credentials])))
             for pending_credential in pending_credentials:
                 self.PROCESS_INDEX += 1
                 if (datetime.now() - pending_credential.checkout_timestamp).total_seconds() > WAITING_TIMEOUT:
@@ -219,6 +222,7 @@ class VCDaemon(Daemon):
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Testing {0} in-use credentials for time-out".format(self.PROCESS_COUNT))
+                self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in in_use_credentials])))
             for in_use_credential in in_use_credentials:
                 self.PROCESS_INDEX += 1
                 if (datetime.now() - in_use_credential.checkout_timestamp).total_seconds() > USING_TIMEOUT:
@@ -239,6 +243,7 @@ class VCDaemon(Daemon):
                 self.log(logging.DEBUG, "Checking credentials to give out for {0} queued requests".format(
                     self.PROCESS_COUNT)
                 )
+                self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in queued_requests])))
             for queued_request in queued_requests:
                 self.PROCESS_INDEX += 1
                 available_credentials = Credential.objects.filter(key=queued_request.key)
@@ -246,6 +251,7 @@ class VCDaemon(Daemon):
                     self.log(logging.DEBUG, "Testing {0} available credentials for queued request".format(
                         available_credentials.count()
                     ), queued_request)
+                    self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(c.id) for c in available_credentials])))
                 for available_credential in available_credentials:
                     # Only give out credentials if there are any available to give out
                     in_use_credentials = CMRequest.objects.\
@@ -281,8 +287,8 @@ class VCDaemon(Daemon):
                         break
 
             self.IS_RUNNING = False
+            self.log(logging.DEBUG, "Going to sleep for {0} seconds".format(POLL_INTERVAL))
             time.sleep(POLL_INTERVAL)
-
 
 def print_help():
     print "usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0]
