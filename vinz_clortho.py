@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.8'
+__version__ = '0.9'
 
 import sys
 import time
