@@ -1,6 +1,6 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.9'
+__version__ = '0.11'
 
 import sys
 import time
@@ -118,17 +118,19 @@ class VCDaemon(Daemon):
         self.log(logging.INFO, "Caught SigTerm... terminating gracefully.")
         self.SHOULD_BE_RUNNING = False
         if self.PROCESS_STEP:
-            self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(
+            self.log(logging.INFO, "Currently processing {0}: {1}/{2}".format(
                 self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT)
             )
         previous_step = self.PROCESS_STEP
+        GRACE_WAIT = 0.2
         while self.IS_RUNNING:
             if self.PROCESS_STEP != previous_step:
-                self.log(logging.DEBUG, "Currently processing {0}: {1}/{2}".format(
+                self.log(logging.INFO, "Currently processing {0}: {1}/{2}".format(
                     self.PROCESS_STEP, self.PROCESS_INDEX, self.PROCESS_COUNT)
                 )
             previous_step = self.PROCESS_STEP
-            time.sleep(0.1)
+            self.log(logging.DEBUG, "Going to sleep for {0} seconds".format(GRACE_WAIT))
+            time.sleep(GRACE_WAIT)
         self.log(logging.INFO, "Gracefully terminated.")
         sys.exit(0)
 
@@ -164,6 +166,9 @@ class VCDaemon(Daemon):
                 new_request.status = CMRequest.QUEUING
                 self.log(logging.INFO, "Putting into queue", new_request)
                 new_request.save()
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Done processing new requests")
+
 
             # This is mainly a formality, but just mark all the ones that are a
             # status of CANCEL to CANCELED instead.  This indicates that the
@@ -181,6 +186,8 @@ class VCDaemon(Daemon):
                 cancel_request.status = CMRequest.CANCELED
                 self.log(logging.INFO, "Canceled by client", cancel_request)
                 cancel_request.save()
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Done processing cancel requests")
 
             returned_credentials = CMRequest.objects.\
                 filter(status=CMRequest.RETURNED)
@@ -199,6 +206,8 @@ class VCDaemon(Daemon):
                     (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()
                 ), returned_credential)
                 returned_credential.save()
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Done processing returned credentials")
 
             pending_credentials = CMRequest.objects.\
                 filter(status=CMRequest.GIVEN_OUT)
@@ -214,9 +223,11 @@ class VCDaemon(Daemon):
                     pending_credential.status = CMRequest.TIMED_OUT_WAITING
                     self.log(logging.WARNING, "Timed out waiting for client to receive credentials", pending_credential)
                     pending_credential.save()
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Done testing given-out credentials for time-out")
 
             in_use_credentials = CMRequest.objects.\
-                filter(status__in=[CMRequest.IN_USE, CMRequest.CANCEL])
+                filter(status__in=[CMRequest.IN_USE, CMRequest.CANCEL], checkout_timestamp__isnull=False)
             self.PROCESS_STEP = "In-use Credentials"
             self.PROCESS_COUNT = in_use_credentials.count()
             self.PROCESS_INDEX = 0
@@ -229,6 +240,8 @@ class VCDaemon(Daemon):
                     in_use_credential.status = CMRequest.TIMED_OUT_USING
                     self.log(logging.WARNING, "Timed out waiting for client to return credentials", in_use_credential)
                     in_use_credential.save()
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Done testing in-use credentials for time-out")
 
             # This is the meat of the big loop.  This section is the one that
             # will be doling out the credentials on a first-come, first-serve
@@ -285,6 +298,8 @@ class VCDaemon(Daemon):
                         ), queued_request)
                         queued_request.save()
                         break
+            if self.PROCESS_COUNT > 0:
+                self.log(logging.DEBUG, "Done checking credentials to give out for queued requests")
 
             self.IS_RUNNING = False
             self.log(logging.DEBUG, "Going to sleep for {0} seconds".format(POLL_INTERVAL))
@@ -321,7 +336,7 @@ if __name__ == "__main__":
                 elif arg[-1] in ('d', 'D'):
                     kwdict['min_log_level'] = logging.DEBUG
                 else:
-                    print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D"
+                    print "unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D".format(arg[-1])
                     sys.exit(2)
             elif arg[:2] == '-L':
                 kwdict['logfile'] = arg[2:]
