@@ -1,85 +1,16 @@
 #!/usr/bin/python
 __author__ = 'Steven Ogdahl'
-__version__ = '0.11'
+__version__ = '0.20'
 
 import sys
 import time
-import socket
 import logging
 import signal
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from daemon import Daemon
-
-ENV_HOST = socket.gethostname()
-
-from django.conf import settings
-
-if ENV_HOST == 'Lynx':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'workportal',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '192.168.2.110',
-                'PORT': '5432',
-                'OPTIONS': {'autocommit': True, }
-            }
-        },
-        TIME_ZONE='US/Central'
-    )
-
-elif ENV_HOST == 'stage.vanguardds.com':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'workportal',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '127.0.0.1',
-                'PORT': '6432',
-                'OPTIONS': {'autocommit': True, }
-            }
-        },
-        TIME_ZONE='UTC'
-    )
-
-elif ENV_HOST == 'work.vanguardds.com':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'workportal',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '127.0.0.1',
-                'PORT': '6432',
-                'OPTIONS': {'autocommit': True, }
-            }
-        },
-        TIME_ZONE='UTC'
-    )
-
-elif ENV_HOST == 'atisearch.com':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'workportal',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': '127.0.0.1',
-                'PORT': '5432',
-                'OPTIONS': {'autocommit': True, }
-            }
-        },
-        TIME_ZONE='UTC'
-    )
-
-from scrapeService.copied_models import Credential, CMRequest
+from models import Credential, CMRequest
+import mongo
 
 # Seconds to use as a timeout
 WAITING_TIMEOUT = 90
@@ -139,33 +70,34 @@ class VCDaemon(Daemon):
         self.log(logging.INFO, "Credential waiting timeout is {0} seconds".format(WAITING_TIMEOUT))
         self.log(logging.INFO, "Credential using timeout is {0} seconds".format(USING_TIMEOUT))
 
+        connection = mongo.connect_db()
+        db = connection.vinz_clortho
+
         signal.signal(signal.SIGTERM, self.graceful_term)
         self.SHOULD_BE_RUNNING = True
 
         while self.SHOULD_BE_RUNNING:
             self.IS_RUNNING = True
 
-            new_requests = CMRequest.objects.filter(status=CMRequest.SUBMITTED)
+            new_requests = CMRequest.find(db, filter={'status': CMRequest.SUBMITTED})
             self.PROCESS_STEP = "New Requests"
-            self.PROCESS_COUNT = new_requests.count()
+            self.PROCESS_COUNT = len(new_requests)
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Processing {0} new requests".format(self.PROCESS_COUNT))
                 self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in new_requests])))
             for new_request in new_requests:
                 self.PROCESS_INDEX += 1
-                credentials = Credential.objects.filter(key=new_request.key)
+                credentials = Credential.find(db, filter={'key': new_request.key})
 
                 # If we didn't find any credentials, then error out this request
                 if len(credentials) == 0:
-                    new_request.status = CMRequest.NO_SUCH_KEY
                     self.log(logging.ERROR, "No such key found: {0}".format(new_request.key), new_request)
-                    new_request.save()
+                    new_request.update(status=CMRequest.NO_SUCH_KEY)
                     continue
 
-                new_request.status = CMRequest.QUEUING
                 self.log(logging.INFO, "Putting into queue", new_request)
-                new_request.save()
+                new_request.update(status=CMRequest.QUEUING)
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Done processing new requests")
 
@@ -173,46 +105,43 @@ class VCDaemon(Daemon):
             # This is mainly a formality, but just mark all the ones that are a
             # status of CANCEL to CANCELED instead.  This indicates that the
             # server acknowledged the order to cancel
-            cancel_requests = CMRequest.objects.\
-                filter(status=CMRequest.CANCEL)
+            cancel_requests = CMRequest.find(db, filter={'status': CMRequest.CANCEL})
             self.PROCESS_STEP = "Cancel Requests"
-            self.PROCESS_COUNT = cancel_requests.count()
+            self.PROCESS_COUNT = len(cancel_requests)
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Processing {0} cancel requests".format(self.PROCESS_COUNT))
                 self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in cancel_requests])))
             for cancel_request in cancel_requests:
                 self.PROCESS_INDEX += 1
-                cancel_request.status = CMRequest.CANCELED
                 self.log(logging.INFO, "Canceled by client", cancel_request)
-                cancel_request.save()
+                cancel_request.update(status=CMRequest.CANCELED)
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Done processing cancel requests")
 
-            returned_credentials = CMRequest.objects.\
-                filter(status=CMRequest.RETURNED)
+            returned_credentials = CMRequest.find(db, filter={'status': CMRequest.RETURNED})
             self.PROCESS_STEP = "Returned Credentials"
-            self.PROCESS_COUNT = returned_credentials.count()
+            self.PROCESS_COUNT = len(returned_credentials)
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Processing {0} returned credentials".format(self.PROCESS_COUNT))
                 self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in returned_credentials])))
             for returned_credential in returned_credentials:
                 self.PROCESS_INDEX += 1
+                credential = Credential.find_one(db, filter={'_id': returned_credential.credential})
                 returned_credential.status = CMRequest.COMPLETED
                 returned_credential.checkin_timestamp = datetime.now()
                 self.log(logging.INFO, "CredentialId {0} returned by client (Elapsed: {1:.1f}s)".format(
-                    returned_credential.credential.id,
+                    credential.id,
                     (returned_credential.checkin_timestamp - returned_credential.checkout_timestamp).total_seconds()
                 ), returned_credential)
-                returned_credential.save()
+                returned_credential.update(status=CMRequest.COMPLETED, checkin_timestamp=datetime.now())
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Done processing returned credentials")
 
-            pending_credentials = CMRequest.objects.\
-                filter(status=CMRequest.GIVEN_OUT)
+            pending_credentials = CMRequest.find(db, filter={'status': CMRequest.GIVEN_OUT})
             self.PROCESS_STEP = "Pending Credentials"
-            self.PROCESS_COUNT = pending_credentials.count()
+            self.PROCESS_COUNT = len(pending_credentials)
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Testing {0} given out credentials for time-out".format(self.PROCESS_COUNT))
@@ -220,16 +149,17 @@ class VCDaemon(Daemon):
             for pending_credential in pending_credentials:
                 self.PROCESS_INDEX += 1
                 if (datetime.now() - pending_credential.checkout_timestamp).total_seconds() > WAITING_TIMEOUT:
-                    pending_credential.status = CMRequest.TIMED_OUT_WAITING
                     self.log(logging.WARNING, "Timed out waiting for client to receive credentials", pending_credential)
-                    pending_credential.save()
+                    pending_credential.update(status=CMRequest.TIMED_OUT_WAITING)
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Done testing given-out credentials for time-out")
 
-            in_use_credentials = CMRequest.objects.\
-                filter(status__in=[CMRequest.IN_USE, CMRequest.CANCEL], checkout_timestamp__isnull=False)
+            in_use_credentials = CMRequest.find(db, filter={
+                'status': {'$in': (CMRequest.IN_USE, CMRequest.CANCEL)},
+                'checkout_timestamp': {'$exists': True}
+            })
             self.PROCESS_STEP = "In-use Credentials"
-            self.PROCESS_COUNT = in_use_credentials.count()
+            self.PROCESS_COUNT = len(in_use_credentials)
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Testing {0} in-use credentials for time-out".format(self.PROCESS_COUNT))
@@ -237,20 +167,19 @@ class VCDaemon(Daemon):
             for in_use_credential in in_use_credentials:
                 self.PROCESS_INDEX += 1
                 if (datetime.now() - in_use_credential.checkout_timestamp).total_seconds() > USING_TIMEOUT:
-                    in_use_credential.status = CMRequest.TIMED_OUT_USING
                     self.log(logging.WARNING, "Timed out waiting for client to return credentials", in_use_credential)
-                    in_use_credential.save()
+                    in_use_credential.update(status=CMRequest.TIMED_OUT_USING)
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Done testing in-use credentials for time-out")
 
             # This is the meat of the big loop.  This section is the one that
             # will be doling out the credentials on a first-come, first-serve
             # basis, with priority overriding that.
-            queued_requests = CMRequest.objects.\
-                filter(status=CMRequest.QUEUING).\
-                order_by('-priority', 'submission_timestamp', 'id')
+            queued_requests = CMRequest.find(db, filter={'status': CMRequest.QUEUING}, sort=
+                [('priority', mongo.DESCENDING), ('submission_timestamp', mongo.ASCENDING), ('_id', mongo.ASCENDING)]
+            )
             self.PROCESS_STEP = "Queued Requests"
-            self.PROCESS_COUNT = queued_requests.count()
+            self.PROCESS_COUNT = len(queued_requests)
             self.PROCESS_INDEX = 0
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Checking credentials to give out for {0} queued requests".format(
@@ -259,44 +188,50 @@ class VCDaemon(Daemon):
                 self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(r.id) for r in queued_requests])))
             for queued_request in queued_requests:
                 self.PROCESS_INDEX += 1
-                available_credentials = Credential.objects.filter(key=queued_request.key)
-                if available_credentials.count() > 0:
+                available_credentials = Credential.find(db, filter={'key': queued_request.key})
+                if len(available_credentials) > 0:
                     self.log(logging.DEBUG, "Testing {0} available credentials for queued request".format(
-                        available_credentials.count()
+                        len(available_credentials)
                     ), queued_request)
                     self.log(logging.DEBUG, "Ids: {0}".format(', '.join([str(c.id) for c in available_credentials])))
                 for available_credential in available_credentials:
                     # Only give out credentials if there are any available to give out
-                    in_use_credentials = CMRequest.objects.\
-                        filter(credential=available_credential, status__in=[
-                            CMRequest.GIVEN_OUT,
-                            CMRequest.IN_USE,
-                            CMRequest.RETURNED
-                        ]).count()
+                    in_use_credentials = available_credential.in_use
 
                     # Also, throttle how frequently we are allowed to give out this credential
-                    credential_frequency = CMRequest.objects.\
-                        filter(credential=available_credential, status__in=[
-                            CMRequest.GIVEN_OUT,
-                            CMRequest.TIMED_OUT_WAITING,
-                            CMRequest.IN_USE,
-                            CMRequest.TIMED_OUT_USING,
-                            CMRequest.RETURNED,
-                            CMRequest.COMPLETED
-                        ], checkout_timestamp__gte=datetime.now() - timedelta(seconds=available_credential.throttle_timespan)).count()
+                    credential_frequency = len(CMRequest.find(db, filter={
+                        'credential': available_credential.id,
+                        'status': {
+                            '$in': (
+                                CMRequest.GIVEN_OUT,
+                                CMRequest.TIMED_OUT_WAITING,
+                                CMRequest.IN_USE,
+                                CMRequest.TIMED_OUT_USING,
+                                CMRequest.RETURNED,
+                                CMRequest.COMPLETED
+                            )
+                        },
+                        'checkout_timestamp': {
+                            '$gte': datetime.now() - available_credential.throttle_timespan
+                        }
+                    }))
 
                     if (available_credential.max_checkouts == 0 or
                             in_use_credentials < available_credential.max_checkouts) and \
-                            (available_credential.throttle_timespan == 0 or credential_frequency == 0):
+                            (available_credential.throttle_seconds == 0 or credential_frequency == 0):
                         # We found a credential available to be used! Yay!
-                        queued_request.credential = available_credential
+                        queued_request.credential = available_credential.id
                         queued_request.status = CMRequest.GIVEN_OUT
                         queued_request.checkout_timestamp = datetime.now()
                         self.log(logging.INFO, "Assigning CredentialId: {0} to client (waited {1:.1f}s)".format(
                             available_credential.id,
                             (queued_request.checkout_timestamp - queued_request.submission_timestamp).total_seconds()
                         ), queued_request)
-                        queued_request.save()
+                        queued_request.update(
+                            credential=available_credential.id,
+                            status=CMRequest.GIVEN_OUT,
+                            checkout_timestamp=datetime.now()
+                        )
                         break
             if self.PROCESS_COUNT > 0:
                 self.log(logging.DEBUG, "Done checking credentials to give out for queued requests")
