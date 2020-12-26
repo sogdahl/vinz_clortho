@@ -7,7 +7,6 @@ __author__ = 'Steven Ogdahl'
 # This is not my preferred method of doing this; I'd much rather keep a single
 # source, especially considering that these are DB models, but what can you do.
 
-from datetime import datetime
 from django.db import models
 
 
@@ -59,11 +58,11 @@ class CMRequest(models.Model):
         (NO_SUCH_KEY, 'No such key found')
     )
 
-    credential = models.ForeignKey(Credential, default=None, null=True, related_name="+")
+    credential = models.ForeignKey(Credential, default=None, null=True, related_name="+", on_delete=models.CASCADE)
     client = models.CharField(max_length=1000, verbose_name="Client identifier", null=False, default='')
     key = models.CharField(max_length=200, verbose_name="Key", null=False, default='')
-    priority = models.PositiveIntegerField(default=0)
+    priority = models.PositiveIntegerField(default=10)
     status = models.PositiveIntegerField(choices=STATUS_CHOICES, default=UNKNOWN)
-    submission_timestamp = models.DateTimeField(null=False, default=datetime.now())
+    submission_timestamp = models.DateTimeField(null=False, auto_now_add=True)
     checkout_timestamp = models.DateTimeField(null=True)
     checkin_timestamp = models.DateTimeField(null=True)

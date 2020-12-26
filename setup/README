@@ -1,0 +1,17 @@
+Steps needed to set up Vinz Clortho on a new system.  Default logging is into /var/log/vinz_clortho/vinz_clortho.log
+
+1. Create excuting user (e.g. vdatas) with appropriate permissions
+
+2. Make sure /etc/hostname has the correct hostname
+
+3. Make sure there's an appropriate settings section in vinz_clortho for the hostname in (2)
+
+4. Create /var/log/vinz_clortho directory with propermissions for user of (1) to write to
+
+5. Copy vinz-clortho script from this directory into /etc/init.d
+
+6. Inside /etc/init.d/vinz-clortho, Update DAEMON_USER variable to be the user of (1)
+
+7. Run "update-rc.d vinz-clortho defaults" to add the vinz-clortho daemon to the start-up scripts
+
+8. Enable the service with "sudo service vinz-clortho start"
