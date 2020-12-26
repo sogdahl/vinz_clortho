@@ -1,0 +1,85 @@
+#!/usr/bin/python
+__author__ = 'Steven Ogdahl'
+__version__ = '0.21'
+
+import sys
+import time
+import logging
+import signal
+from datetime import datetime
+
+from daemon import Daemon
+from models import Credential, CMRequest
+import mongo
+
+# Seconds to use as a timeout
+WAITING_TIMEOUT = 90
+USING_TIMEOUT = 600
+POLL_INTERVAL = 2
+
+def print_help():
+    print("usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0])
+    print("OPTIONS can be any of (default in parenthesis):")
+    print("  -l(F|C|E|W|I|D)\tSets the minimum logging level to Fatal, Critical, ")
+    print("\t\tError, Warning, or Info, or Debug (W)")
+    print("  -LFILE\tSets logfile to FILE")
+    print("\t\tLeave blank for STDOUT")
+    print("  -p##\t\tSets main polling interval (2)")
+    print("  -w##\t\tSets credential waiting timeout value (90)")
+    print("  -u##\t\tSets credential using timeout value (600)")
+    print("  -v\t\tPrints the current version and exits")
+
+if __name__ == "__main__":
+    kwdict = {}
+    #  VERY basic options parsing
+    if len(sys.argv) >= 2:
+        for arg in sys.argv[1:]:
+            if arg[:2] == '-l':
+                if arg[-1] in ('f', 'F'):
+                    kwdict['min_log_level'] = logging.FATAL
+                elif arg[-1] in ('c', 'C'):
+                    kwdict['min_log_level'] = logging.CRITICAL
+                elif arg[-1] in ('e', 'E'):
+                    kwdict['min_log_level'] = logging.ERROR
+                elif arg[-1] in ('w', 'W'):
+                    kwdict['min_log_level'] = logging.WARNING
+                elif arg[-1] in ('i', 'I'):
+                    kwdict['min_log_level'] = logging.INFO
+                elif arg[-1] in ('d', 'D'):
+                    kwdict['min_log_level'] = logging.DEBUG
+                else:
+                    print("unknown parameter '{0}' specified for -l.  Please use F, C, E, W, I, or D".format(arg[-1]))
+                    sys.exit(2)
+            elif arg[:2] == '-L':
+                kwdict['logfile'] = arg[2:]
+            elif arg[:2] == '-p':
+                kwdict['POLL_INTERVAL'] = int(arg[2:])
+            elif arg[:2] == '-w':
+                kwdict['WAITING_TIMEOUT'] = int(arg[2:])
+            elif arg[:2] == '-u':
+                kwdict['USING_TIMEOUT'] = int(arg[2:])
+            elif arg in ('-h', '--help'):
+                print_help()
+                sys.exit(1)
+            elif arg in ('-v', '--version'):
+                print("%s version %s" % (sys.argv[0], __version__))
+                print("Many Shuvs and Zuuls knew what it was to be roasted")
+                print("in the depths of the Slor that day, I can tell you!")
+                sys.exit(1)
+            else:
+                print("Unknown argument passed.  Please consult --help")
+                sys.exit(2)
+
+    from vinz_clortho_service import VCService
+    service = VCService(**kwdict)
+
+#     context = daemon.DaemonContext(
+#         detach_process=False,
+# #        pidfile=lockfile.FileLock('/var/run/spam.pid'),
+#         pidfile=lockfile.FileLock('/tmp/vinz_clortho.pid'),
+#         signal_map={signal.SIGTERM: service.graceful_term},
+#         stdout=open('/var/log/vinz_clortho/stdout.log', 'w+'),
+#         stderr=open('/var/log/vinz_clortho/stderr.log', 'w+'),
+#     )
+    # with context:
+    service.run()

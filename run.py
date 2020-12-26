@@ -1,3 +1,4 @@
+#!/usr/bin/python
 __author__ = 'Steven Ogdahl'
 from vinz_clortho_website import app
 
