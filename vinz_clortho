@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 __author__ = 'Steven Ogdahl'
-__version__ = '0.21'
+__version__ = '0.22'
 
 import sys
 import time
