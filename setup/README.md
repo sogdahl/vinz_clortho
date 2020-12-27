@@ -4,7 +4,10 @@ Steps needed to set up Vinz Clortho on a new system.  Default logging is into /v
 
 2. Make sure /etc/hostname has the correct hostname
 
-3. Make sure MongoDB is installed and running
+3. Make sure the following are installed and running
+   a. MongoDB (https://docs.mongodb.com/manual/tutorial/install-mongodb-on-ubuntu/)
+   b. Python3 & pip (apt-get install -y python3 pip)
+   c. Everything in requirements.txt (pip install -r requirements.txt)
 
 4. Create /var/log/vinz_clortho directory with propermissions for user of (1) to write to
 
