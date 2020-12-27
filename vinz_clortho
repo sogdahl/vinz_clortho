@@ -8,7 +8,6 @@ import logging
 import signal
 from datetime import datetime
 
-from daemon import Daemon
 from models import Credential, CMRequest
 import mongo
 

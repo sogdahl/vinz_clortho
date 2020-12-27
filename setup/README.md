@@ -4,7 +4,7 @@ Steps needed to set up Vinz Clortho on a new system.  Default logging is into /v
 
 2. Make sure /etc/hostname has the correct hostname
 
-3. Make sure Mongo is installed and running
+3. Make sure MongoDB is installed and running
 
 4. Create /var/log/vinz_clortho directory with propermissions for user of (1) to write to
 
@@ -12,6 +12,10 @@ Steps needed to set up Vinz Clortho on a new system.  Default logging is into /v
 
 6. Inside /etc/init.d/vinz-clortho and vinz-clortho-web, Update DAEMON_USER variable to be the user of (1)
 
-7. Run "update-rc.d vinz-clortho defaults" and "update-rc.d vinz-clortho0-web defaults" to add the vinz-clortho and vinz-clortho-web daemons to the start-up scripts
+7. Run the following to add the daemons to start on system start-up
+   a. "update-rc.d vinz-clortho defaults"
+   b. "update-rc.d vinz-clortho-web defaults"
 
-8. Enable the services with "sudo service vinz-clortho start" and "sudo service vinz-clortho-web start"
+8. Enable the services with the following
+   a. "sudo service vinz-clortho start"
+   b. "sudo service vinz-clortho-web start"
