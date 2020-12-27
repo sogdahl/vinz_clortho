@@ -1,54 +1,20 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 __author__ = 'Steven Ogdahl'
-__version__ = '0.12'
+__version__ = '0.21'
 
-import signal
 import sys
-import socket
-import lockfile
+import time
 import logging
-import os
+import signal
+from datetime import datetime
 
-ENV_HOST = socket.gethostname()
+from models import Credential, CMRequest
+import mongo
 
-from django.conf import settings
-import django
-#import daemon
-
-if ENV_HOST == 'TIGER':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'wp',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': 'wp.c9zozgszfgor.us-west-2.rds.amazonaws.com',
-                'PORT': '5432',
-            }
-        },
-        TIME_ZONE='UTC',
-        INSTALLED_APPS=('scrapeService',),
-    )
-
-elif ENV_HOST == 'vinz-clortho.titleapi.com':
-    settings.configure(
-        DATABASES={
-            'default': {
-                'ENGINE': 'django.db.backends.postgresql_psycopg2',
-                'NAME': 'wp',
-                'USER': 'workportal',
-                'PASSWORD': 'PYddT2rEk02d',
-                'HOST': 'wp.c9zozgszfgor.us-west-2.rds.amazonaws.com',
-                'PORT': '5432',
-            }
-        },
-        TIME_ZONE='UTC',
-        INSTALLED_APPS=('scrapeService',),
-    )
-
-django.setup()
-# from vinz_clortho_daemon import VCDaemon
+# Seconds to use as a timeout
+WAITING_TIMEOUT = 90
+USING_TIMEOUT = 600
+POLL_INTERVAL = 2
 
 def print_help():
     print("usage: %s [OPTIONS] start|stop|restart|run" % sys.argv[0])
