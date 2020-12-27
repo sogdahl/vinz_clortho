@@ -8,6 +8,9 @@ import bson.objectid
 from datetime import datetime, timedelta
 import json
 from flask import Flask, request, session, url_for, redirect, render_template, abort, g, flash
+from flask_cors import CORS
+from flask_httpauth import HTTPBasicAuth
+from werkzeug.security import generate_password_hash, check_password_hash
 import pymongo
 import time
 
@@ -27,6 +30,13 @@ class JSONEncoder(json.JSONEncoder):
 app = Flask(__name__)
 app.config.from_object(__name__)
 app.config.from_envvar('VINZ_CLORTHO_SETTINGS', silent=True)
+# The 'origins' list should be more restrictive than "all" in a production environment
+CORS(app, origins=['*'])
+auth = HTTPBasicAuth()
+
+users = {
+    "vanguard": generate_password_hash("Usgh3Ntq^62j3$")
+}
 
 def connect_db():
     return mongo.connect_db()
@@ -48,8 +58,13 @@ def close_db(error):
     if hasattr(g, 'mongo_client'):
         g.mongo_client.close()
 
+@auth.verify_password
+def verify_password(username, password):
+    if username in users and check_password_hash(users.get(username), password):
+        return username
 
 @app.route('/credential/add', methods=['POST'])
+@auth.login_required
 def add_credential():
     db = get_db()
     result = db.credential.insert_one({
@@ -62,6 +77,7 @@ def add_credential():
     return JSONEncoder().encode(result.inserted_id)
 
 @app.route('/credential/list', methods=['GET'])
+@auth.login_required
 def list_credentials():
     db = get_db()
     credentials = []
@@ -86,6 +102,7 @@ def list_credentials():
 
 
 @app.route('/credential/request/list', methods=['GET'])
+@auth.login_required
 def list_credential_requests():
     db = get_db()
     requests = []
@@ -112,6 +129,7 @@ def list_credential_requests():
 
 
 @app.route('/credential/request/<key>', methods=['GET'])
+@auth.login_required
 def credentials_request(key):
     db = get_db()
     try:
@@ -130,6 +148,7 @@ def credentials_request(key):
 
 
 @app.route('/credential/status/<ticket>', methods=['GET'])
+@auth.login_required
 def credentials_ticket_status(ticket):
     poll = False
     poll_interval = 5
@@ -199,6 +218,7 @@ def credentials_ticket_status(ticket):
 
 
 @app.route('/credential/release/<ticket>', methods=['GET'])
+@auth.login_required
 def credentials_release(ticket):
     db = get_db()
     id = bson.objectid.ObjectId(ticket)
