@@ -11,7 +11,7 @@ git pull origin ${1:-master}
 
 chmod +x vinz_clortho
 chmod +x run.py
-sudo cp -R * /opt/vinz_clortho/
+sudo rsync -av . /opt/vinz_clortho/ --exclude setup
 sudo service vinz-clortho start
 sudo service vinz-clortho-web start
 

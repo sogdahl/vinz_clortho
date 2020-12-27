@@ -19,3 +19,11 @@ Steps needed to set up Vinz Clortho on a new system.  Default logging is into /v
 8. Enable the services with the following
    a. "sudo service vinz-clortho start"
    b. "sudo service vinz-clortho-web start"
+
+9. Copy deploy_vinz_clortho.sh in this directory to ~/ or wherever it should live
+
+10. Update deploy_vinz_clortho.sh to point the 'pushd' command to where your git repository is
+
+11. (Optional) Update the branch from 'master' to whatever is appropriate
+
+12. Run command to update from git
