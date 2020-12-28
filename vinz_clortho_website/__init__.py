@@ -68,11 +68,11 @@ def verify_password(username, password):
 def add_credential():
     db = get_db()
     result = db.credential.insert_one({
-        'key': request.json['key'],
-        'username': request.json['username'],
-        'password': request.json['password'],
-        'max_checkouts': int(request.json['max_checkouts']),
-        'throttle_seconds': int(request.json['throttle_seconds'])
+        'key': request.form['key'],
+        'username': request.form['username'],
+        'password': request.form['password'],
+        'max_checkouts': int(request.form['max_checkouts']),
+        'throttle_seconds': int(request.form['throttle_seconds'])
     })
     return JSONEncoder().encode(result.inserted_id)
 
