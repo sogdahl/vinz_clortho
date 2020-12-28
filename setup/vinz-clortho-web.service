@@ -1,0 +1,13 @@
+[Unit]
+Description=Vinz Clortho web service to handle requests for credentials
+After=network.target
+
+[Service]
+User=vdatas
+Group=www-data
+WorkingDirectory=/opt/vinz_clortho
+Environment="PATH=/opt/vinz_clortho;/usr/bin"
+ExecStart=gunicorn --workers 3 --bind unix:vinz-clortho-web.sock -m 007 wsgi:app
+
+[Install]
+WantedBy=multi-user.target

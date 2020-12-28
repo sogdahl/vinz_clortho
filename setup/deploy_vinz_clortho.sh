@@ -2,17 +2,17 @@
 
 pushd /home/vdatas/git/vinz_clortho
 
-sudo service vinz-clortho-web stop
-sudo service vinz-clortho stop
+sudo systemctl stop vinz-clortho-web
+sudo systemctl stop vinz-clortho
 
 git clean -f
 git reset --hard
 git pull origin ${1:-master}
 
 chmod +x vinz_clortho
-chmod +x run.py
+chmod +x wsgi.py
 sudo rsync -av --delete . /opt/vinz_clortho/ --exclude setup/ --exclude .git/ --exclude .gitignore
-sudo service vinz-clortho start
-sudo service vinz-clortho-web start
+sudo systemctl start vinz-clortho
+sudo systemctl start vinz-clortho-web
 
 popd

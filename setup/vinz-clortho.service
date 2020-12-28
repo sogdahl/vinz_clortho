@@ -1,0 +1,13 @@
+[Unit]
+Description=Vinz Clortho service for managing website credentials
+After=network.target
+
+[Service]
+User=vdatas
+Group=vdatas
+WorkingDirectory=/opt/vinz_clortho
+Environment="PATH=/opt/vinz_clortho"
+ExecStart=/opt/vinz_clortho/vinz_clortho -lI -L/var/log/vinz_clortho/vinz_clortho.log
+
+[Install]
+WantedBy=multi-user.target
