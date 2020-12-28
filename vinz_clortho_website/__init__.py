@@ -10,6 +10,7 @@ import json
 from flask import Flask, request, make_response, g
 from flask_cors import CORS
 from flask_httpauth import HTTPBasicAuth
+from http import HTTPStatus
 from werkzeug.security import generate_password_hash, check_password_hash
 import time
 
@@ -52,8 +53,8 @@ def get_client():
 def get_db():
     return get_client().vinz_clortho
 
-def jsonify_no_content():
-    response = make_response('', 204)
+def jsonify_status(status=HTTPStatus.NO_CONTENT):
+    response = make_response('', status)
     response.mimetype = 'application/json'
  
     return response
@@ -81,37 +82,41 @@ def add_credential():
     })
     return JSONEncoder().encode(result.inserted_id)
 
-@app.route('/credential/<id>', methods=['GET'])
-@auth.login_required
-def get_credential(id):
+@app.route('/credential/<cred_id>', methods=['GET'])
+#@auth.login_required
+def get_credential(cred_id):
     db = get_db()
-    credential = db.credential.find_one({ 'id': id })
-    return JSONEncoder().encode(credential)
+    id = bson.objectid.ObjectId(cred_id)
+    credential = Credential.find_one(db, filter=id)
+    return JSONEncoder().encode(credential.to_dict())
 
-@app.route('/credential/<id>', methods=['PUT'])
+@app.route('/credential/<cred_id>', methods=['PUT'])
 @auth.login_required
-def update_credential(id):
+def update_credential(cred_id):
     db = get_db()
-    credential = db.credential.find_one({ 'id': id })
+    id = bson.objectid.ObjectId(cred_id)
+    credential = Credential.find_one(db, filter=id)
 
-    if credential:
-        cm_request = Credential(db=db, **credential)
-        cm_request.update({
-            'key': request.form['key'],
-            'username': request.form['username'],
-            'password': request.form['password'],
-            'max_checkouts': int(request.form['max_checkouts']),
-            'throttle_seconds': int(request.form['throttle_seconds'])
-        })
+    if not credential:
+        return jsonify_status(HTTPStatus.BAD_REQUEST)
 
-    return JSONEncoder().encode(credential)
+    credential.update(
+        key=request.form['key'],
+        username=request.form['username'],
+        password=request.form['password'],
+        max_checkouts=int(request.form['max_checkouts']),
+        throttle_seconds=int(request.form['throttle_seconds'])
+    )
 
-@app.route('/credential/<id>', methods=['DELETE'])
+    return JSONEncoder().encode(credential.to_dict())
+
+@app.route('/credential/<cred_id>', methods=['DELETE'])
 @auth.login_required
-def delete_credential(id):
+def delete_credential(cred_id):
     db = get_db()
-    db.credential.delete_one({ 'id': id })
-    return jsonify_no_content()
+    id = bson.objectid.ObjectId(cred_id)
+    db.credential.delete_one({ '_id': id })
+    return jsonify_status()
 
 @app.route('/credential/list', methods=['GET'])
 @auth.login_required

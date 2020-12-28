@@ -42,22 +42,24 @@ class Credential(object):
         )
 
     def _retrieve_statistics(self):
-        from django.db import connection
-        cursor = connection.cursor()
-        cursor.execute(u'''
-            SELECT
-            AVG(checkout_timestamp - submission_timestamp) AS avg_wait,
-            AVG(checkin_timestamp - checkout_timestamp) AS avg_usage,
-            STDDEV(extract(epoch from checkout_timestamp - submission_timestamp)) * INTERVAL '1 second' AS stddev_wait,
-            STDDEV(extract(epoch from checkin_timestamp - checkout_timestamp)) * INTERVAL '1 second' AS stddev_usage
-            FROM "scrapeService_cmrequest"
-            WHERE credential_id = {0} AND status = {1}
-            '''.format(self.id, CMRequest.COMPLETED))
-        items = list(dict_iterator(cursor, ['avg_wait', 'avg_usage', 'stddev_wait', 'stddev_usage']))
-        self._average_wait_time = (items[0]['avg_wait'] or timedelta()).total_seconds()
-        self._average_usage_time = (items[0]['avg_usage'] or timedelta()).total_seconds()
-        self._stddev_wait_time = (items[0]['stddev_wait'] or timedelta()).total_seconds()
-        self._stddev_usage_time = (items[0]['stddev_usage'] or timedelta()).total_seconds()
+        ## TODO -- refactor this for MongoDB
+        pass
+        # from django.db import connection
+        # cursor = connection.cursor()
+        # cursor.execute(u'''
+        #     SELECT
+        #     AVG(checkout_timestamp - submission_timestamp) AS avg_wait,
+        #     AVG(checkin_timestamp - checkout_timestamp) AS avg_usage,
+        #     STDDEV(extract(epoch from checkout_timestamp - submission_timestamp)) * INTERVAL '1 second' AS stddev_wait,
+        #     STDDEV(extract(epoch from checkin_timestamp - checkout_timestamp)) * INTERVAL '1 second' AS stddev_usage
+        #     FROM "scrapeService_cmrequest"
+        #     WHERE credential_id = {0} AND status = {1}
+        #     '''.format(self.id, CMRequest.COMPLETED))
+        # items = list(dict_iterator(cursor, ['avg_wait', 'avg_usage', 'stddev_wait', 'stddev_usage']))
+        # self._average_wait_time = (items[0]['avg_wait'] or timedelta()).total_seconds()
+        # self._average_usage_time = (items[0]['avg_usage'] or timedelta()).total_seconds()
+        # self._stddev_wait_time = (items[0]['stddev_wait'] or timedelta()).total_seconds()
+        # self._stddev_usage_time = (items[0]['stddev_usage'] or timedelta()).total_seconds()
 
     @property
     def in_use(self):
